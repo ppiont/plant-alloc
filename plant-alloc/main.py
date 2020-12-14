@@ -23,6 +23,7 @@ plt.style.use('seaborn-colorblind')
 
 # Set data directory
 datadir = pathlib.Path('data')
+outdir = pathlib.Path('out')
 
 # Load files
 consumption = (gpd.read_file(datadir.joinpath('Regional_BC_2030.geojson'))
@@ -113,27 +114,37 @@ def allocate_recycling(plants, regions, plant_id='name', reg_id='NUTS_ID',
         A copy of the `regions` input df with an added column that designates
         which plant a region is assigned to.
     """
+    # Get distances between plants and regions
     distances = get_dists(plants, regions, plant_id=plant_id,
                           reg_id=reg_id)
+    # Copy regions to make output file without modifying original
     output = regions.copy()
-    output['plant_alloc'] = None
+    # Iterate over plants
     for _, plant in plants.iterrows():
+        # Read capacity
         capacity = int(plant[capacity_col])
+        # Read distance to all regions, sorted ascending
         reg_dist = distances[[plant[plant_id]]].sort_values(plant[plant_id])
-        # Cycle through plants from nearest to furthest
+        # Cycle distances from nearest to farthest
         for reg_idx, row in reg_dist.iterrows():
+            # Extract beverage carton consumption from regions df
             consumption = np.float(
                 regions[regions[reg_id] == reg_idx][consump_col])
+            # Stop loop when plant capacity has been reached
             if consumption > capacity:
                 break
+            # In case of sufficient capacity
             else:
+                # Get index of currently looping region in output file
                 out_idx = output[output[reg_id] == reg_idx].index[0]
+                # Subtract consumed capacity
                 capacity -= consumption
+                # Add plant to region
                 output.loc[out_idx, 'plant_alloc'] = plant[plant_id]
 
     return output
 
 
-test = allocate_recycling(plants, regions)
-
-test.to_file("out/regions_w_plant_alloc.geojson", driver='GeoJSON')
+# Run and save
+out = allocate_recycling(plants, regions)
+out.to_file(outdir.joinpath('regions_w_plant_alloc.geojson', driver='GeoJSON'))
