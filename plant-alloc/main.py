@@ -119,6 +119,10 @@ def allocate_recycling(plants, regions, plant_id='name', reg_id='NUTS_ID',
                           reg_id=reg_id)
     # Copy regions to make output file without modifying original
     output = regions.copy()
+    # Initialize allocation column
+    output['plant_alloc'] = 'unallocated'
+    # Create set to store visited regions
+    visited = set()
     # Iterate over plants
     for _, plant in plants.iterrows():
         # Read capacity
@@ -130,21 +134,31 @@ def allocate_recycling(plants, regions, plant_id='name', reg_id='NUTS_ID',
             # Extract beverage carton consumption from regions df
             consumption = np.float(
                 regions[regions[reg_id] == reg_idx][consump_col])
-            # Stop loop when plant capacity has been reached
-            if consumption > capacity:
-                break
-            # In case of sufficient capacity
-            else:
-                # Get index of currently looping region in output file
+            if reg_idx in visited:
+                # Move on if the region has already been allocated
+                continue
+            elif capacity > 0:
+                # In case of sufficient capacity
+                # get index of currently looping region in output file
                 out_idx = output[output[reg_id] == reg_idx].index[0]
                 # Subtract consumed capacity
                 capacity -= consumption
-                # Add plant to region
+                # Add plant to region and visited set
                 output.loc[out_idx, 'plant_alloc'] = plant[plant_id]
+                visited.add(reg_idx)
+                print(reg_idx)
+            else:
+                # Stop loop when plant capacity has been reached
+                break
 
     return output
 
 
 # Run and save
 out = allocate_recycling(plants, regions)
+
+fig, ax = plt.subplots(figsize=(15, 15))
+out.plot(column='plant_alloc', ax=ax)
+plants.plot(color='black', ax=ax)
+
 out.to_file(outdir.joinpath('regions_w_plant_alloc.geojson', driver='GeoJSON'))
