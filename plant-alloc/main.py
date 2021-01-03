@@ -143,10 +143,9 @@ def allocate_recycling(plants, regions, plant_id='name', reg_id='NUTS_ID',
                 out_idx = output[output[reg_id] == reg_idx].index[0]
                 # Subtract consumed capacity
                 capacity -= consumption
-                # Add plant to region and visited set
+                # Assign region to plant and add to visited set
                 output.loc[out_idx, 'plant_alloc'] = plant[plant_id]
                 visited.add(reg_idx)
-                print(reg_idx)
             else:
                 # Stop loop when plant capacity has been reached
                 break
