@@ -51,13 +51,14 @@ F_coords = [[x, y] for x, y in zip(facs.geometry.x, facs.geometry.y)]
 R_coords = [[x, y] for x, y in zip(regs.geometry.centroid.x,
                                    regs.geometry.centroid.y)]
 
-# Distance matrix (regions = rows, facilities = cols)
+# Distance matrix (regions = rows, facilities = cols) /1000 for km
 dist = distance_matrix(R_coords, F_coords)/1000
-
+# Distance vector
 dist_vec = dist.flatten()
 
+# Initialize basis vector of R^(len(facilities))
 ones_N_F = np.ones(N_F)
-
+# Define constraints
 A_capacity = np.zeros((N_F, N_R * N_F))
 for i in range(N_R):
     A_capacity[:, i * N_F:(i * N_F + N_F)] = np.diag(ones_N_F)
@@ -66,42 +67,42 @@ A_supply = np.zeros((N_R, N_R * N_F))
 for i in range(N_R):
     A_supply[i, i * N_F:(i * N_F + N_F)] = ones_N_F
 
+# Create solver
 x_opt = sciopt.linprog(c=dist_vec, A_eq=A_capacity, b_eq=C,
                        A_ub=A_supply, b_ub=S, bounds=(0, None),
-                       method='revised simplex')
+                       method='interior-point')
 
-
-
+# Output to matrix
 x_opt_mat = np.reshape(x_opt.x, (N_R, N_F))
+# Normalize matrix for volume weighted plotting of supply lines
 x_opt_mat_normalized = x_opt_mat/np.linalg.norm(x_opt_mat)
 
+df = pd.DataFrame(x_opt_mat)
+df.columns = facs.name
+df.insert(loc=0, column='NUTS_region', value=regs.NUTS_ID)
 
-'''
-plt.figure()
-plt.imshow(x_opt_mat)
-plt.colorbar()
-plt.show()
-'''
-
-xvalues_regions = df_regions['xcord'].to_numpy()
-yvalues_regions = df_regions['ycord'].to_numpy()
-
-xvalues_facilities = df_facilities['xcord'].to_numpy()
-yvalues_facilities = df_facilities['ycord'].to_numpy()
-
-fig, ax = plt.subplots()
-
-ax.scatter(df_regions["xcord"], df_regions["ycord"],s=200)
-ax.scatter(df_facilities["xcord"], df_facilities["ycord"],s=200)
-
+fig, ax = plt.subplots(figsize=(15,15))
+regs.plot(ax=ax)
+facs.plot(color='red', ax=ax)
 
 for i in range(N_R):
-    ax.annotate("{:.1f}".format(S[i]-np.sum(x_opt_mat[i,:])), (xvalues_regions[i], yvalues_regions[i]),fontsize=15)
+    ax.annotate(f'{S[i]-np.sum(x_opt_mat[i,:]):.1f}',
+                (regs.iloc[i, :].geometry.centroid.x,
+                 regs.iloc[i, :].geometry.centroid.y), fontsize=8)
+
     for j in range(N_F):
-        #ax.annotate(C[j], (xvalues_facilities[j], yvalues_facilities[j]+0.5),fontsize=15)
-        plt.plot([xvalues_regions[i],xvalues_facilities[j]],
-                 [yvalues_regions[i],yvalues_facilities[j]],'k-',linewidth=x_opt_mat_normalized[i,j]*10)
-        if x_opt_mat_normalized[i,j] > 1e-8:
-            ax.annotate("{:.1f}".format(x_opt_mat[i,j]), ((xvalues_regions[i]+xvalues_facilities[j])/2
-                                         , (yvalues_regions[i]+yvalues_facilities[j])/2), fontsize=15)
+        # ax.annotate(C[j], (xvalues_facilities[j], yvalues_facilities[j]+0.5),fontsize=15)
+        plt.plot([regs.iloc[i, :].geometry.centroid.x,
+                  facs.iloc[j, :].geometry.x],
+                 [regs.iloc[i, :].geometry.centroid.y,
+                  facs.iloc[j, :].geometry.y], 'k-',
+                 linewidth=x_opt_mat_normalized[i, j] * 10)
+        if x_opt_mat_normalized[i, j] > 1e-8:
+            ax.annotate("{:.1f}".format(x_opt_mat[i, j]),
+                        ((regs.iloc[i, :].geometry.centroid.x +
+                          facs.iloc[j, :].geometry.x)/2,
+                         (regs.iloc[i, :].geometry.centroid.y +
+                          facs.iloc[j, :].geometry.y)/2),
+                        fontsize=15)
+plt.savefig('test.svg')
 plt.show()
