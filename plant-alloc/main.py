@@ -95,27 +95,27 @@ out.to_csv(outdir.joinpath('solution.csv'))
 
 
 # PLOT STUFF
-# fig, ax = plt.subplots(figsize=(15, 15))
-# regs.plot(ax=ax)
-# facs.plot(color='red', ax=ax)
+fig, ax = plt.subplots(figsize=(15, 15))
+regs.plot(ax=ax)
+facs.plot(color='red', ax=ax)
 
-# for i in range(N_R):
-#     ax.annotate(f'{S[i]-np.sum(x_opt_mat[i,:]):.1f}',
-#                 (regs.iloc[i, :].geometry.centroid.x,
-#                  regs.iloc[i, :].geometry.centroid.y), fontsize=8)
+for i in range(N_R):
+    ax.annotate(f'{S[i]-np.sum(x_opt_mat[i,:]):.1f}',
+                (regs.iloc[i, :].geometry.centroid.x,
+                  regs.iloc[i, :].geometry.centroid.y), fontsize=8)
 
-#     for j in range(N_F):
-#         plt.plot([regs.iloc[i, :].geometry.centroid.x,
-#                   facs.iloc[j, :].geometry.x],
-#                  [regs.iloc[i, :].geometry.centroid.y,
-#                   facs.iloc[j, :].geometry.y], 'k-',
-#                  linewidth=x_opt_mat_normalized[i, j] * 10)
-#         if x_opt_mat_normalized[i, j] > 1e-8:
-#             ax.annotate("{:.1f}".format(x_opt_mat[i, j]),
-#                         ((regs.iloc[i, :].geometry.centroid.x +
-#                           facs.iloc[j, :].geometry.x)/2,
-#                          (regs.iloc[i, :].geometry.centroid.y +
-#                           facs.iloc[j, :].geometry.y)/2),
-#                         fontsize=15)
-# plt.savefig('test.svg')
-# plt.show()
+    for j in range(N_F):
+        plt.plot([regs.iloc[i, :].geometry.centroid.x,
+                  facs.iloc[j, :].geometry.x],
+                  [regs.iloc[i, :].geometry.centroid.y,
+                  facs.iloc[j, :].geometry.y], 'k-',
+                  linewidth=x_opt_mat_normalized[i, j] * 10)
+        if x_opt_mat_normalized[i, j] > 1e-8:
+            ax.annotate("{:.1f}".format(x_opt_mat[i, j]),
+                        ((regs.iloc[i, :].geometry.centroid.x +
+                          facs.iloc[j, :].geometry.x)/2,
+                          (regs.iloc[i, :].geometry.centroid.y +
+                          facs.iloc[j, :].geometry.y)/2),
+                        fontsize=15)
+plt.savefig('test.svg', dpi=900)
+plt.show()
