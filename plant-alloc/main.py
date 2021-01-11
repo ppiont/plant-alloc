@@ -13,7 +13,7 @@ import pathlib
 import pandas as pd
 import geopandas as gpd
 import numpy as np
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import scipy.optimize as sciopt
 from scipy.spatial import distance_matrix
 
@@ -29,7 +29,6 @@ consumption = (gpd.read_file(datadir.joinpath('Regional_BC_2030.geojson'))
                .set_crs('EPSG:3035', allow_override=True))
 facs = (gpd.read_file(datadir.joinpath('UBC_processing_2030.geojson'))
         .set_crs('EPSG:3035', allow_override=True))
-
 # Keep only relevant columns and areas within Europe proper
 regs = consumption[['NUTS_ID', 'NUTS_NAME', 'Country', 'capita',
                     'BC per cap', 'Collecti_2', 'Color', 'BC_per_reg',
@@ -61,7 +60,7 @@ dist_vec = dist.flatten()
 
 # Initialize basis vector of R^(len(facilities))
 ones_N_F = np.ones(N_F)
-# Define constraints
+# Define variable matrices
 A_capacity = np.zeros((N_F, N_R * N_F))
 for i in range(N_R):
     A_capacity[:, i * N_F:(i * N_F + N_F)] = np.diag(ones_N_F)
@@ -70,13 +69,24 @@ A_supply = np.zeros((N_R, N_R * N_F))
 for i in range(N_R):
     A_supply[i, i * N_F:(i * N_F + N_F)] = ones_N_F
 
-# Create solver
-x_opt = sciopt.linprog(c=dist_vec, A_eq=A_capacity, b_eq=C,
-                       A_ub=A_supply, b_ub=S, bounds=(0, None),
-                       method='interior-point')
+
+def solver():
+    """Create different solvers depending on inequalities."""
+    if C.sum() <= S.sum():
+        x_opt = sciopt.linprog(c=dist_vec, A_ub=A_supply, b_ub=S,
+                               A_eq=A_capacity, b_eq=C,
+                               bounds=(0, None),
+                               method='interior-point')
+    else:
+        x_opt = sciopt.linprog(c=dist_vec, A_ub=A_capacity, b_ub=C,
+                               A_eq=A_supply, b_eq=S,
+                               bounds=(0, None),
+                               method='interior-point')
+    return x_opt
+
 
 # Output solution to matrix
-x_opt_mat = np.reshape(x_opt.x, (N_R, N_F))
+x_opt_mat = np.reshape(solver().x, (N_R, N_F))
 # Normalize matrix for volume weighted plotting of supply lines
 x_opt_mat_normalized = x_opt_mat/np.linalg.norm(x_opt_mat)
 
@@ -109,7 +119,7 @@ out.to_file(outdir.joinpath('solution.shp'))
 # out.to_csv(outdir.joinpath('solution.csv'))
 
 
-# # PLOT STUFF
+# # Plot flows
 # fig, ax = plt.subplots(figsize=(20, 20))
 # regs.plot(ax=ax)
 # facs.plot(color='red', ax=ax)
@@ -135,4 +145,5 @@ out.to_file(outdir.joinpath('solution.shp'))
 # plt.savefig('test.svg', dpi=900)
 # plt.show()
 
+# Plot assignments
 # out.plot(column='Assignment', figsize=(20, 20), cmap='tab20b', legend=True)
