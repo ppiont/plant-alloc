@@ -90,8 +90,13 @@ out.insert(loc=0, column='NUTS_ID', value=regs.NUTS_ID)
 out['Assignment'] = np.where(out[fac_cols].sum(axis=1) <= 0.01, 'unassigned',
                              out[fac_cols].idxmax(axis=1))
 
-# Output solution df to csv
-out.to_csv(outdir.joinpath('solution.csv'))
+# Create spatial dataframe
+out = gpd.GeoDataFrame(out, geometry=regs.geometry)
+
+# Output solution to geojson
+out.to_file(outdir.joinpath('solution.geojson'), driver='GeoJSON')
+# # Output solution df to csv
+# out.to_csv(outdir.joinpath('solution.csv'))
 
 
 # PLOT STUFF
@@ -102,19 +107,19 @@ facs.plot(color='red', ax=ax)
 for i in range(N_R):
     ax.annotate(f'{S[i]-np.sum(x_opt_mat[i,:]):.1f}',
                 (regs.iloc[i, :].geometry.centroid.x,
-                  regs.iloc[i, :].geometry.centroid.y), fontsize=8)
+                 regs.iloc[i, :].geometry.centroid.y), fontsize=8)
 
     for j in range(N_F):
         plt.plot([regs.iloc[i, :].geometry.centroid.x,
                   facs.iloc[j, :].geometry.x],
-                  [regs.iloc[i, :].geometry.centroid.y,
+                 [regs.iloc[i, :].geometry.centroid.y,
                   facs.iloc[j, :].geometry.y], 'k-',
-                  linewidth=x_opt_mat_normalized[i, j] * 10)
+                 linewidth=x_opt_mat_normalized[i, j] * 10)
         if x_opt_mat_normalized[i, j] > 1e-8:
             ax.annotate("{:.1f}".format(x_opt_mat[i, j]),
                         ((regs.iloc[i, :].geometry.centroid.x +
                           facs.iloc[j, :].geometry.x)/2,
-                          (regs.iloc[i, :].geometry.centroid.y +
+                         (regs.iloc[i, :].geometry.centroid.y +
                           facs.iloc[j, :].geometry.y)/2),
                         fontsize=15)
 plt.savefig('test.svg', dpi=900)
