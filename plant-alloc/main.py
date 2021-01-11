@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sun Jan  3 16:39:09 2021
+Created on Sun Jan  3 16:39:09 2021.
 
 @author: peterp
 """
@@ -13,9 +13,12 @@ import pathlib
 import pandas as pd
 import geopandas as gpd
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import scipy.optimize as sciopt
 from scipy.spatial import distance_matrix
+
+# Set non-scientific number format
+pd.set_option('display.float_format', lambda x: '%.2f' % x)
 
 # Set data directory
 datadir = pathlib.Path('data')
@@ -78,49 +81,58 @@ x_opt_mat = np.reshape(x_opt.x, (N_R, N_F))
 x_opt_mat_normalized = x_opt_mat/np.linalg.norm(x_opt_mat)
 
 # Create matrix of solution variables
-out = pd.DataFrame(x_opt_mat)
+out = pd.DataFrame(x_opt_mat.copy())
+
 # Get facility names/columns
 fac_cols = list(facs.name)
 # Add facility names to solution matrix cols
 out.columns = fac_cols
+# Remove miniscule values
+out[fac_cols] = out[fac_cols].applymap(lambda x: x if x > 0.01 else 0)
 # Add region names to solution matrix rows
-out.insert(loc=0, column='NUTS_ID', value=regs.NUTS_ID)
+out.insert(loc=0, column='NUTS_ID', value=regs.NUTS_ID.values)
 
 # Assign regions to facility they allocate their largest share to
-out['Assignment'] = np.where(out[fac_cols].sum(axis=1) <= 0.01, 'unassigned',
+out['Assignment'] = np.where(out[fac_cols].max(axis=1) < 0.01, 'unassigned',
                              out[fac_cols].idxmax(axis=1))
 
 # Create spatial dataframe
-out = gpd.GeoDataFrame(out, geometry=regs.geometry)
+out = gpd.GeoDataFrame(out, geometry=regs.geometry.values)
 
-# Output solution to geojson
-out.to_file(outdir.joinpath('solution.geojson'), driver='GeoJSON')
-# # Output solution df to csv
+# # Output solution to geojson
+# out.to_file(outdir.joinpath('solution.geojson'), driver='GeoJSON')
+
+# Output solution to shapefile
+out.to_file(outdir.joinpath('solution.shp'))
+
+# # Output solution to csv
 # out.to_csv(outdir.joinpath('solution.csv'))
 
 
-# PLOT STUFF
-fig, ax = plt.subplots(figsize=(15, 15))
-regs.plot(ax=ax)
-facs.plot(color='red', ax=ax)
+# # PLOT STUFF
+# fig, ax = plt.subplots(figsize=(20, 20))
+# regs.plot(ax=ax)
+# facs.plot(color='red', ax=ax)
 
-for i in range(N_R):
-    ax.annotate(f'{S[i]-np.sum(x_opt_mat[i,:]):.1f}',
-                (regs.iloc[i, :].geometry.centroid.x,
-                 regs.iloc[i, :].geometry.centroid.y), fontsize=8)
+# for i in range(N_R):
+#     ax.annotate(f'{S[i]-np.sum(x_opt_mat[i,:]):.1f}',
+#                 (regs.iloc[i, :].geometry.centroid.x,
+#                  regs.iloc[i, :].geometry.centroid.y), fontsize=8)
 
-    for j in range(N_F):
-        plt.plot([regs.iloc[i, :].geometry.centroid.x,
-                  facs.iloc[j, :].geometry.x],
-                 [regs.iloc[i, :].geometry.centroid.y,
-                  facs.iloc[j, :].geometry.y], 'k-',
-                 linewidth=x_opt_mat_normalized[i, j] * 10)
-        if x_opt_mat_normalized[i, j] > 1e-8:
-            ax.annotate("{:.1f}".format(x_opt_mat[i, j]),
-                        ((regs.iloc[i, :].geometry.centroid.x +
-                          facs.iloc[j, :].geometry.x)/2,
-                         (regs.iloc[i, :].geometry.centroid.y +
-                          facs.iloc[j, :].geometry.y)/2),
-                        fontsize=15)
-plt.savefig('test.svg', dpi=900)
-plt.show()
+#     for j in range(N_F):
+#         plt.plot([regs.iloc[i, :].geometry.centroid.x,
+#                   facs.iloc[j, :].geometry.x],
+#                  [regs.iloc[i, :].geometry.centroid.y,
+#                   facs.iloc[j, :].geometry.y], 'k-',
+#                  linewidth=x_opt_mat_normalized[i, j] * 10)
+#         if x_opt_mat_normalized[i, j] > 1e-8:
+#             ax.annotate("{:.1f}".format(x_opt_mat[i, j]),
+#                         ((regs.iloc[i, :].geometry.centroid.x +
+#                           facs.iloc[j, :].geometry.x)/2,
+#                          (regs.iloc[i, :].geometry.centroid.y +
+#                           facs.iloc[j, :].geometry.y)/2),
+#                         fontsize=15)
+# plt.savefig('test.svg', dpi=900)
+# plt.show()
+
+# out.plot(column='Assignment', figsize=(20, 20), cmap='tab20b', legend=True)
